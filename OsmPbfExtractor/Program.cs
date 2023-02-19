@@ -11,7 +11,11 @@ namespace OsmPbfExtractor
         static void Main(string[] args)
         {
             Console.Write("Source file: ");
-            string sourcePath = Console.ReadLine().Trim();
+            string sourcePath = (args.Length > 0 ? args[0] : Console.ReadLine()).Trim();
+            if (args.Length > 0)
+            {
+                Console.WriteLine(args[0]);
+            }
             if (!File.Exists(sourcePath))
             {
                 Console.Error.WriteLine("File not found!");
@@ -19,10 +23,18 @@ namespace OsmPbfExtractor
             }
 
             Console.Write("Target file: ");
-            string targetPath = Console.ReadLine().Trim();
+            string targetPath = (args.Length > 1 ? args[1] : Console.ReadLine()).Trim();
+            if (args.Length > 1)
+            {
+                Console.WriteLine(args[1]);
+            }
 
             Console.Write("First corner point [lat,lng]: ");
-            float[] firstPoint = Console.ReadLine().Split(',').Select(s => float.Parse(s.Trim())).ToArray();
+            float[] firstPoint = (args.Length > 2 ? args[2] : Console.ReadLine()).Split(',').Select(s => float.Parse(s.Trim())).ToArray();
+            if (args.Length > 2)
+            {
+                Console.WriteLine(args[2]);
+            }
             if (firstPoint.Length < 2)
             {
                 Console.Error.WriteLine("Invalid input!");
@@ -30,19 +42,16 @@ namespace OsmPbfExtractor
             }
 
             Console.Write("Second corner point [lat,lng]: ");
-            float[] secondPoint = Console.ReadLine().Split(',').Select(s => float.Parse(s.Trim())).ToArray();
+            float[] secondPoint = (args.Length > 3 ? args[3] : Console.ReadLine()).Split(',').Select(s => float.Parse(s.Trim())).ToArray();
+            if (args.Length > 3)
+            {
+                Console.WriteLine(args[3]);
+            }
             if (secondPoint.Length < 2)
             {
                 Console.Error.WriteLine("Invalid input!");
                 return;
             }
-
-            Console.Write("Openning target...");
-            FileInfo fileInfo = new FileInfo(targetPath);
-            fileInfo.Directory.Create();
-            FileStream targetStream = fileInfo.OpenWrite();
-            OsmStreamTarget osmTarget = new PBFOsmStreamTarget(targetStream, true);
-            Console.WriteLine("OK");
 
             Console.Write("Openning source...");
             using (FileStream sourceStream = new FileInfo(sourcePath).OpenRead())
@@ -54,39 +63,18 @@ namespace OsmPbfExtractor
                 OsmStreamSource osmSource = new PBFOsmStreamSource(sourceStream).FilterBox(left, top, right, bottom, true);
                 Console.WriteLine("OK");
 
-                long i = 0;
-                foreach (OsmGeo geo in osmSource)
+                Console.Write("Openning target...");
+                using (FileStream targetStream = new FileInfo(targetPath).Open(FileMode.Create, FileAccess.ReadWrite))
                 {
-                    switch (geo.Type)
-                    {
-                        case OsmGeoType.Node:
-                            osmTarget.AddNode((Node)geo);
-                            i++;
-                            break;
-                        case OsmGeoType.Way:
-                            osmTarget.AddWay((Way)geo);
-                            i++;
-                            break;
-                        case OsmGeoType.Relation:
-                            osmTarget.AddRelation((Relation)geo);
-                            i++;
-                            break;
-                    }
-                    if (i % 100 == 0)
-                    {
-                        Console.Write("\r{0:N0} items added", i);
-                    }
+                    PBFOsmStreamTarget osmTarget = new PBFOsmStreamTarget(targetStream);
+                    osmTarget.RegisterSource(osmSource);
+                    Console.WriteLine("OK");
+
+                    Console.Write("Pulling to target...");
+                    osmTarget.Pull();
+                    Console.WriteLine("OK");
                 }
-
-                Console.WriteLine("\r{0:N0} items added", i);
-                sourceStream.Close();
             }
-
-            Console.Write("Flushing...");
-            osmTarget.Flush();
-            Console.WriteLine("OK");
-
-            targetStream.Close();
 
             Console.WriteLine("Finish!");
         }
